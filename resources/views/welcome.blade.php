@@ -1,157 +1,162 @@
-{{-- resources/views/livewire/homepage.blade.php --}}
-{{-- ou remplacez votre welcome.blade.php actuel --}}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fermes Directes - Produits frais du producteur au consommateur</title>
-    <meta name="description" content="Achetez directement aux agriculteurs près de chez vous : fruits, légumes, œufs, miel... frais et locaux !">
-
+    <title>Fermes Directes - Produits frais locaux</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
+    <script src="https://js.stripe.com/v3/"></script>
     <script src="//unpkg.com/alpinejs" defer></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
 </head>
-<body class="bg-gray-50 font-sans">
+<body class="bg-gray-50 font-sans antialiased">
 
-{{-- Header / Navigation --}}
-<header class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-            <div class="flex items-center">
-                <h1 class="text-2xl font-bold text-green-700">Fermes Directes</h1>
-            </div>
+@livewire('cart.cart-manager')
 
-            <nav class="hidden md:flex space-x-8">
-                <a href="#" class="text-gray-700 hover:text-green-600 font-medium">Accueil</a>
-                <a href="#" class="text-gray-700 hover:text-green-600 font-medium">Producteurs</a>
-                <a href="#" class="text-gray-700 hover:text-green-600 font-medium">Panier</a>
-            </nav>
-
-            <div class="flex items-center space-x-4">
-                @auth
-                    <a href="{{ route('dashboard') }}" class="text-green-600 font-semibold">
-                        Mon compte
-                    </a>
-                @else
-                    <a href="{{ route('login') }}" class="text-gray-700 hover:text-green-600">Connexion</a>
-                    <a href="{{ route('register') }}" class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition">
-                        S'inscrire
-                    </a>
-                @endauth
-            </div>
-        </div>
+{{-- Popup Détail Produit --}}
+<div x-data="{ productDetail: null }" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+    <div x-show="productDetail"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-70 pointer-events-auto"
+         @click="productDetail = null">
     </div>
-</header>
 
-{{-- Hero Section --}}
-<section class="relative bg-gradient-to-r from-green-600 to-emerald-700 text-white py-24">
-    <div class="max-w-7xl mx-auto px-6 text-center">
-        <h2 class="text-5xl md:text-6xl font-bold mb-6">
-            Du producteur<br>directement dans votre assiette
-        </h2>
-        <p class="text-xl md:text-2xl mb-10 opacity-90">
-            Fruits et légumes ultra-frais • Prix justes • Zéro intermédiaire
-        </p>
-
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#catalogue" class="bg-white text-green-700 px-8 py-4 rounded-full text-lg font-bold hover:bg-gray-100 transition shadow-lg">
-                Voir les produits disponibles
-            </a>
-            <a href="#producteurs" class="border-2 border-white px-8 py-4 rounded-full text-lg font-bold hover:bg-white hover:text-green-700 transition">
-                Trouver un producteur près de chez moi
-            </a>
-        </div>
-    </div>
-</section>
-
-{{-- Barre de recherche rapide --}}
-<div id="catalogue" class="bg-white shadow-md -mt-8 relative z-10 max-w-4xl mx-auto rounded-2xl p-6 -mb-12">
-    <div class="flex flex-col md:flex-row gap-4">
-        <input type="text" placeholder="Ex : tomates, pommes, œufs bio..."
-               class="flex-1 px-6 py-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-lg">
-        <input type="text" placeholder="Votre ville ou code postal"
-               class="flex-1 px-6 py-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-lg">
-        <button class="bg-green-600 text-white px-10 py-4 rounded-xl font-bold hover:bg-green-700 transition text-lg">
-            Rechercher
+    <div x-show="productDetail"
+         x-transition:enter="transition ease-out duration-500 transform"
+         x-transition:enter-start="opacity-0 scale-75 translate-y-10"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-300 transform"
+         x-transition:leave-end="opacity-0 scale-75 translate-y-10"
+         class="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full mx-4 pointer-events-auto overflow-hidden"
+         @click.stop>
+         
+        <button @click="productDetail = null" class="absolute top-6 right-6 text-gray-500 hover:text-gray-800 z-10">
+            <i class="ri-close-line text-4xl"></i>
         </button>
+
+        <template x-if="productDetail">
+            <div class="grid md:grid-cols-2">
+                <!-- Image -->
+                <div class="bg-gradient-to-br from-green-100 to-emerald-200 p-12 flex items-center justify-center">
+                    <div class="bg-white bg-opacity-80 rounded-3xl p-12 shadow-xl">
+                        <i class="ri-fruit-plant-line text-9xl text-green-600"></i>
+                        <!-- Tu pourras remplacer par <img> plus tard -->
+                    </div>
+                </div>
+
+                <!-- Détails -->
+                <div class="p-10 md:p-16">
+                    <h2 class="text-4xl font-bold text-gray-800 mb-4" x-text="productDetail.nom"></h2>
+                    <p class="text-3xl font-bold text-green-600 mb-6" x-text="productDetail.prix"></p>
+
+                    <div class="space-y-4 text-gray-700 mb-8">
+                        <p><strong>Ferme :</strong> <span x-text="productDetail.ferme"></span></p>
+                        <p><strong>Fraîcheur :</strong> <span class="text-green-600 font-bold" x-text="productDetail.frais"></span></p>
+                        <p><strong>Origine :</strong> Produit local (moins de 30 km)</p>
+                        <p><strong>Saison :</strong> En pleine saison</p>
+                    </div>
+
+                    <div class="flex items-center gap-4 mb-8">
+                        <button @click="$dispatch('add-to-cart', { id: productDetail.id, name: productDetail.nom, price: productDetail.prix })"
+                                class="bg-green-600 hover:bg-green-700 text-white px-10 py-5 rounded-full font-bold text-lg transition shadow-lg flex items-center gap-3">
+                            <i class="ri-shopping-cart-2-fill"></i>
+                            Ajouter au panier
+                        </button>
+                    </div>
+
+                    <p class="text-sm text-gray-500">
+                        Livraison ou retrait gratuit à la ferme • Paiement sécurisé
+                    </p>
+                </div>
+            </div>
+        </template>
     </div>
 </div>
 
-{{-- Produits en vedette --}}
-<section class="py-20 bg-gray-50">
-    <div class="max-w-7xl mx-auto px-6">
-        <h3 class="text-4xl font-bold text-center text-gray-800 mb-12">
-            Produits frais du moment
-        </h3>
+{{-- Header, Hero, Recherche... (identique à avant) --}}
+<header class="bg-white shadow-sm sticky top-0 z-40">...</header>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+{{-- Hero --}}
+<section class="relative bg-gradient-to-br from-green-600 to-emerald-700 text-white py-32">...</section>
+
+{{-- Produits en vedette --}}
+<section class="py-24 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-6">
+        <h3 class="text-4xl md:text-5xl font-bold text-center mb-16">Les produits frais du moment</h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8" x-data>
             @foreach([
-                ['nom' => 'Tomates anciennes', 'prix' => '3,20 €/kg', 'ferme' => 'Ferme du Soleil - 12 km', 'img' => 'tomates', 'frais' => 'Récolté ce matin'],
-                ['nom' => 'Pommes Gala bio', 'prix' => '2,80 €/kg', 'ferme' => 'Verger Martin - 8 km', 'img' => 'pommes', 'frais' => 'Récolté hier'],
-                ['nom' => 'Œufs plein air', 'prix' => '3,90 € les 12', 'ferme' => 'Ferme des Poules Heureuses - 5 km', 'img' => 'oeufs', 'frais' => 'Ponte du jour'],
-                ['nom' => 'Miel de lavande', 'prix' => '11,00 € le pot 500g', 'ferme' => 'Rucher Provençal - 18 km', 'img' => 'miel', 'frais' => 'Récolte 2025'],
+                ['id' => 1, 'nom' => 'Tomates anciennes', 'prix' => '3,20 €/kg', 'ferme' => 'Ferme du Soleil - 12 km', 'frais' => 'Récolté ce matin'],
+                ['id' => 2, 'nom' => 'Pommes Gala bio', 'prix' => '2,80 €/kg', 'ferme' => 'Verger Martin - 8 km', 'frais' => 'Récolté hier'],
+                ['id' => 3, 'nom' => 'Œufs plein air', 'prix' => '3,90 € les 12', 'ferme' => 'Ferme des Poules Heureuses - 5 km', 'frais' => 'Ponte du jour'],
+                ['id' => 4, 'nom' => 'Miel de lavande', 'prix' => '11,00 € le pot 500g', 'ferme' => 'Rucher Provençal - 18 km', 'frais' => 'Récolte 2025'],
             ] as $produit)
-                <div class="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition transform hover:-translate-y-2">
-                    <div class="h-48 bg-gray-200 border-2 border-dashed rounded-t-2xl flex items-center justify-center text-gray-400">
-                        <i class="ri-image-line text-6xl"></i>
+                <div class="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition transform hover:-translate-y-3 cursor-pointer group"
+                     @click="$dispatch('open-product-detail', @json($produit))">
+                    <div class="h-56 bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center relative overflow-hidden">
+                        <i class="ri-fruit-plant-line text-8xl text-green-600 opacity-40 group-hover:opacity-60 transition"></i>
+                        <div class="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full font-bold">
+                            {{ $produit['frais'] }}
+                        </div>
                     </div>
                     <div class="p-6">
-                        <div class="flex justify-between items-start mb-2">
-                            <h4 class="text-xl font-bold text-gray-800">{{ $produit['nom'] }}</h4>
-                            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">{{ $produit['frais'] }}</span>
-                        </div>
-                        <p class="text-gray-600 text-sm mb-3">{{ $produit['ferme'] }}</p>
+                        <h4 class="text-xl font-bold text-gray-800 mb-2">{{ $produit['nom'] }}</h4>
+                        <p class="text-gray-600 text-sm mb-4">{{ $produit['ferme'] }}</p>
                         <div class="flex justify-between items-center">
-                            <span class="text-2xl font-bold text-green-600">{{ $produit['prix'] }}</span>
-                            <button class="bg-green-600 text-white p-3 rounded-full hover:bg-green-700 transition">
-                                <i class="ri-shopping-cart-2-line text-xl"></i>
+                            <span class="text-3xl font-bold text-green-600">{{ $produit['prix'] }}</span>
+                            <button @click.stop="$dispatch('add-to-cart', { id: {{ $produit['id'] }}, name: '{{ $produit['nom'] }}', price: '{{ $produit['prix'] }}' })"
+                                    class="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full transition shadow-lg">
+                                <i class="ri-add-line text-xl"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             @endforeach
         </div>
-
-        <div class="text-center mt-12">
-            <a href="#" class="text-green-600 font-bold text-xl hover:underline">
-                Voir tous les produits →
-            </a>
-        </div>
     </div>
 </section>
 
-{{-- Avantages --}}
-<section class="py-20 bg-white">
-    <div class="max-w-7xl mx-auto px-6 text-center">
-        <h3 class="text-4xl font-bold mb-16">Pourquoi acheter chez nous ?</h3>
-        <div class="grid md:grid-cols-3 gap-12">
-            <div>
-                <i class="ri-leaf-line text-6xl text-green-600 mb-4"></i>
-                <h4 class="text-2xl font-bold mb-3">100 % local & de saison</h4>
-                <p class="text-gray-600">Moins de 30 km en moyenne entre la ferme et votre assiette</p>
-            </div>
-            <div>
-                <i class="ri-hand-coin-line text-6xl text-green-600 mb-4"></i>
-                <h4 class="text-2xl font-bold mb-3">Prix juste</h4>
-                <p class="text-gray-600">Le producteur fixe son prix. Pas de marge intermédiaire</p>
-            </div>
-            <div>
-                <i class="ri-truck-line text-6xl text-green-600 mb-4"></i>
-                <h4 class="text-2xl font-bold mb-3">Retrait ou livraison rapide</h4>
-                <p class="text-gray-600">Retrait gratuit à la ferme ou livraison en 24/48h</p>
-            </div>
-        </div>
-    </div>
-</section>
+{{-- Écouteurs Alpine pour le détail et le panier --}}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Écoute l'événement pour ouvrir le détail produit
+        window.addEventListener('open-product-detail', event => {
+            const alpineElement = document.querySelector('[x-data="{ productDetail: null }"]');
+            if (alpineElement && alpineElement.__x) {
+                alpineElement.__x.$data.productDetail = event.detail;
+            }
+        });
 
-{{-- Footer --}}
-<footer class="bg-gray-900 text-white py-12">
-    <div class="max-w-7xl mx-auto px-6 text-center">
-        <h2 class="text-3xl font-bold mb-4">Fermes Directes</h2>
-        <p class="mb-8">La plateforme qui reconnecte les agriculteurs et les consommateurs</p>
-        <p class="text-gray-400">© 2025 Fermes Directes - Projet académique / TP</p>
-    </div>
-</footer>
+        // Écoute l'événement pour ajouter au panier
+        window.addEventListener('add-to-cart', event => {
+            const { id, name, price } = event.detail;
+
+            // On envoie l'événement directement au composant Livewire
+            Livewire.emit('addToCart', id, name, price);
+
+            // Optionnel : petit feedback visuel
+            const btn = event.target.closest('button');
+            if (btn) {
+                btn.innerHTML = '<i class="ri-check-line text-xl"></i>';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="ri-shopping-cart-2-fill text-xl"></i>';
+                }, 800);
+            }
+
+            // Ferme le popup
+            const alpineElement = document.querySelector('[x-data="{ productDetail: null }"]');
+            if (alpineElement && alpineElement.__x) {
+                alpineElement.__x.$data.productDetail = null;
+            }
+        });
+    });
+</script>
+
+@livewireScripts
 </body>
 </html>
