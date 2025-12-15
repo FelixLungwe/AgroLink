@@ -33,6 +33,6 @@
             </main>
         </div>
 
-        @Stack('scripts')
+        @stack('scripts')
     </body>
 </html>

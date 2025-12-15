@@ -2,121 +2,199 @@
 
 namespace App\Livewire\Cart;
 
+use App\Models\Product;
 use Livewire\Component;
+use Illuminate\Support\Facades\Session;
 
 class CartManager extends Component
 {
+    protected $listeners = ['addToCart', 'cartUpdated' => '$refresh'];
+    
     public $cart = [];
     public $totalItems = 0;
-    public $totalPrice = '0,00';
-
-    // Remplace cette ligne :
-// protected $listeners = ['addToCart' => 'addItem'];
-
-// Par celle-ci (elle écoute les événements globaux Livewire) :
-protected $listeners = ['addToCart'];
-
-public function addToCart($id, $name, $price)
-{
-    $this->addItem($id, $name, $price);
-}
+    public $totalAmount = 0;
+    public $isOpen = false;
 
     public function mount()
     {
-        // Données par défaut pour démo
-        $this->cart = collect([
-            1 => ['name' => 'Tomates anciennes', 'price' => '3,20 €/kg', 'quantity' => 2],
-            3 => ['name' => 'Œufs plein air', 'price' => '3,90 € les 12', 'quantity' => 1],
-        ]);
+        $this->loadCart();
+    }
+
+    public function loadCart()
+    {
+        $this->cart = Session::get('cart', []);
         $this->calculateTotals();
     }
 
-    public function addItem($productId, $name, $price)
+    public function saveCart()
     {
+        Session::put('cart', $this->cart);
+        Session::save();
+        $this->emit('cartUpdated');
+    }
+
+    public function addToCart($productId, $quantity = 1)
+    {
+        $product = Product::findOrFail($productId);
+        
+        // Vérifier le stock
+        if ($product->stock < $quantity) {
+            $this->dispatchBrowserEvent('notify', [
+                'type' => 'error',
+                'message' => 'Stock insuffisant pour ce produit.'
+            ]);
+            return;
+        }
+
         if (isset($this->cart[$productId])) {
-            $this->cart[$productId]['quantity']++;
+            $this->cart[$productId]['quantity'] += $quantity;
         } else {
             $this->cart[$productId] = [
-                'name' => $name,
-                'price' => $price,
-                'quantity' => 1
+                'id' => $product->id,
+                'name' => $product->name,
+                'price' => $product->price_kg,
+                'unit' => $product->unit,
+                'photo' => $product->photo_url,
+                'quantity' => $quantity,
+                'max_quantity' => $product->stock
             ];
         }
-        $this->calculateTotals();
+        
+        $this->saveCart();
+        
+        $this->dispatchBrowserEvent('notify', [
+            'type' => 'success',
+            'message' => 'Produit ajouté au panier !'
+        ]);
     }
 
-    public function updateQuantity2($id, $quantity)
+    public function updateQuantity($productId, $quantity)
     {
+        $quantity = (int) $quantity;
+        
         if ($quantity <= 0) {
-            unset($this->cart[$id]);
-        } else {
-            $this->cart[$id]['quantity'] = $quantity;
+            $this->removeItem($productId);
+            return;
         }
-        $this->calculateTotals();
-    }
 
-    // app/Livewire/CartManager.php
-
-    public function updateQuantity($id, $quantity)
-    {
-        if ($quantity <= 0) {
-            unset($this->cart[$id]); // Corrigé : bien supprimé
-        } else {
-            $this->cart[$id]['quantity'] = $quantity;
+        // Vérifier le stock maximum
+        $maxQuantity = $this->cart[$productId]['max_quantity'] ?? 0;
+        if ($quantity > $maxQuantity) {
+            $this->dispatchBrowserEvent('notify', [
+                'type' => 'error',
+                'message' => 'Quantité maximale disponible : ' . $maxQuantity
+            ]);
+            $quantity = $maxQuantity;
         }
-        $this->calculateTotals();
+
+        $this->cart[$productId]['quantity'] = $quantity;
+        $this->saveCart();
     }
 
     public function checkout()
     {
+        if (!auth()->check()) {
+            return redirect()->route('login', ['redirect' => 'checkout']);
+        }
+
+        // Vérifier le stock avant le paiement
+        foreach ($this->cart as $productId => $item) {
+            $product = Product::find($productId);
+            if (!$product || $product->stock < $item['quantity']) {
+                $this->dispatchBrowserEvent('notify', [
+                    'type' => 'error',
+                    'message' => 'Stock insuffisant pour : ' . $item['name']
+                ]);
+                return;
+            }
+        }
+
+        // Configuration de Stripe
         \Stripe\Stripe::setApiKey(env('STRIPE_SECRET'));
 
         $line_items = [];
-        foreach ($this->cart as $item) {
-            $price = floatval(str_replace(',', '.', str_replace([' €/kg', ' € les 12', ' € le pot 500g'], '', $item['price'])));
+        foreach ($this->cart as $productId => $item) {
             $line_items[] = [
                 'price_data' => [
                     'currency' => 'eur',
-                    'product_data' => ['name' => $item['name']],
-                    'unit_amount' => $price * 100, // en centimes
+                    'product_data' => [
+                        'name' => $item['name'],
+                        'description' => 'Quantité: ' . $item['quantity'] . ' ' . ($item['unit'] ?? 'unité'),
+                    ],
+                    'unit_amount' => (int)($item['price'] * 100), // Convertir en centimes
                 ],
                 'quantity' => $item['quantity'],
             ];
         }
 
-        $session = \Stripe\Checkout\Session::create([
-            'payment_method_types' => ['card'],
-            'line_items' => $line_items,
-            'mode' => 'payment',
-            'success_url' => route('home') . '?success=1',
-            'cancel_url' => route('home') . '?canceled=1',
-        ]);
+        try {
+            $session = \Stripe\Checkout\Session::create([
+                'payment_method_types' => ['card'],
+                'line_items' => $line_items,
+                'mode' => 'payment',
+                'success_url' => route('checkout.success') . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('cart'),
+                'customer_email' => auth()->user()->email,
+                'metadata' => [
+                    'user_id' => auth()->id(),
+                    'cart_total' => $this->totalAmount,
+                ]
+            ]);
 
-        return redirect($session->url);
+            return redirect($session->url);
+        } catch (\Exception $e) {
+            $this->dispatchBrowserEvent('notify', [
+                'type' => 'error',
+                'message' => 'Erreur lors de la création de la session de paiement: ' . $e->getMessage()
+            ]);
+            return;
+        }
     }
 
-    public function removeItem($id)
+    public function removeItem($productId)
     {
-        unset($this->cart[$id]);
-        $this->calculateTotals();
+        if (isset($this->cart[$productId])) {
+            unset($this->cart[$productId]);
+            $this->saveCart();
+            
+            $this->dispatchBrowserEvent('notify', [
+                'type' => 'success',
+                'message' => 'Produit retiré du panier.'
+            ]);
+        }
+    }
+
+    public function clearCart()
+    {
+        $this->cart = [];
+        $this->saveCart();
     }
 
     public function calculateTotals()
     {
         $this->totalItems = collect($this->cart)->sum('quantity');
-
-        // Conversion simple du prix (ex: "3,20 €/kg" → 3.20)
-        $total = collect($this->cart)->sum(function ($item) {
-            $price = str_replace([' €/kg', ' € les 12', ' € le pot 500g'], '', $item['price']);
-            $price = str_replace(',', '.', $price);
-            return floatval($price) * $item['quantity'];
+        $this->totalAmount = collect($this->cart)->sum(function ($item) {
+            return $item['quantity'] * $item['price'];
         });
-
-        $this->totalPrice = number_format($total, 2, ',', '');
     }
+
+    public function toggleCart()
+    {
+        $this->isOpen = !$this->isOpen;
+    }
+    
+    public function openCart()
+    {
+        $this->isOpen = true;
+        $this->loadCart();
+    }
+
 
     public function render()
     {
-        return view('livewire.cart.cart-manager');
+        $this->calculateTotals();
+        return view('livewire.cart.cart-manager', [
+            'cartItems' => collect($this->cart)
+        ]);
     }
 }

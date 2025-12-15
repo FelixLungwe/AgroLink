@@ -69,6 +69,14 @@
                         </button>
                     </div>
 
+                    <form x-bind:action="'/cart/add/' + productDetail.id" method="POST" class="mt-4">
+                        @csrf
+                        <button type="submit" 
+                                class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition">
+                            <i class="ri-shopping-cart-line mr-2"></i> Ajouter au panier
+                        </button>
+                    </form>
+
                     <p class="text-sm text-gray-500">
                         Livraison ou retrait gratuit à la ferme • Paiement sécurisé
                     </p>
@@ -82,35 +90,85 @@
 <header class="bg-white shadow-sm sticky top-0 z-40">...</header>
 
 {{-- Hero --}}
-<section class="relative bg-gradient-to-br from-green-600 to-emerald-700 text-white py-32">...</section>
+<!-- Hero Section -->
+<section class="relative bg-gradient-to-r from-green-600 to-emerald-700 text-white py-20 overflow-hidden">
+    <div class="absolute inset-0 z-0">
+        <div class="absolute inset-0 bg-black opacity-30"></div>
+        <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1542838132-92d533f92e0a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80')] bg-cover bg-center"></div>
+    </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+        <h1 class="text-4xl md:text-6xl font-bold mb-6">Découvrez des produits frais et locaux</h1>
+        <p class="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">Commandez directement auprès des producteurs de votre région et recevez des produits frais livrés chez vous.</p>
+        <a href="{{ route('catalog.index') }}" class="inline-block bg-white text-green-700 font-semibold px-8 py-4 rounded-full hover:bg-gray-100 transition duration-300 transform hover:scale-105">
+            Voir le catalogue
+        </a>
+    </div>
+</section>
 
-{{-- Produits en vedette --}}
-<section class="py-24 bg-gray-50">
-    <div class="max-w-7xl mx-auto px-6">
-        <h3 class="text-4xl md:text-5xl font-bold text-center mb-16">Les produits frais du moment</h3>
+<!-- Catégories -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold text-center mb-12">Nos catégories</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <a href="{{ route('catalog.index') }}?category=fruits" class="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition duration-300">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <i class="ri-apple-fill text-3xl text-green-600"></i>
+                </div>
+                <h3 class="font-semibold text-lg">Fruits</h3>
+            </a>
+            <a href="{{ route('catalog.index') }}?category=legumes" class="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition duration-300">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <i class="ri-leaf-fill text-3xl text-green-600"></i>
+                </div>
+                <h3 class="font-semibold text-lg">Légumes</h3>
+            </a>
+            <a href="{{ route('catalog.index') }}?category=viandes" class="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition duration-300">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <i class="ri-restaurant-2-fill text-3xl text-green-600"></i>
+                </div>
+                <h3 class="font-semibold text-lg">Viandes</h3>
+            </a>
+            <a href="{{ route('catalog.index') }}?category=produits-laitiers" class="bg-green-50 rounded-xl p-6 text-center hover:shadow-lg transition duration-300">
+                <div class="bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <i class="ri-cup-fill text-3xl text-green-600"></i>
+                </div>
+                <h3 class="font-semibold text-lg">Produits Laitiers</h3>
+            </a>
+        </div>
+    </div>
+</section>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8" x-data>
-            @foreach([
-                ['id' => 1, 'nom' => 'Tomates anciennes', 'prix' => '3,20 €/kg', 'ferme' => 'Ferme du Soleil - 12 km', 'frais' => 'Récolté ce matin'],
-                ['id' => 2, 'nom' => 'Pommes Gala bio', 'prix' => '2,80 €/kg', 'ferme' => 'Verger Martin - 8 km', 'frais' => 'Récolté hier'],
-                ['id' => 3, 'nom' => 'Œufs plein air', 'prix' => '3,90 € les 12', 'ferme' => 'Ferme des Poules Heureuses - 5 km', 'frais' => 'Ponte du jour'],
-                ['id' => 4, 'nom' => 'Miel de lavande', 'prix' => '11,00 € le pot 500g', 'ferme' => 'Rucher Provençal - 18 km', 'frais' => 'Récolte 2025'],
-            ] as $produit)
-                <div class="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition transform hover:-translate-y-3 cursor-pointer group"
-                     @click="$dispatch('open-product-detail', @json($produit))">
-                    <div class="h-56 bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center relative overflow-hidden">
-                        <i class="ri-fruit-plant-line text-8xl text-green-600 opacity-40 group-hover:opacity-60 transition"></i>
-                        <div class="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-xs px-3 py-1 rounded-full font-bold">
-                            {{ $produit['frais'] }}
-                        </div>
+<!-- Produits en vedette -->
+<section class="py-16 bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center mb-12">
+            <h2 class="text-3xl font-bold">Produits populaires</h2>
+            <a href="{{ route('catalog.index') }}" class="text-green-600 hover:text-green-800 font-medium flex items-center">
+                Voir tout <i class="ri-arrow-right-line ml-2"></i>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            @foreach($featuredProducts as $product)
+                <div class="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition duration-300 transform hover:-translate-y-1">
+                    <div class="relative">
+                        @if($product->isOnSale())
+                            <span class="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                                -{{ $product->discount_percentage }}%
+                            </span>
+                        @endif
+                        <img src="{{ $product->image_url ?? 'https://via.placeholder.com/300' }}" alt="{{ $product->name }}" class="w-full h-48 object-cover">
                     </div>
                     <div class="p-6">
-                        <h4 class="text-xl font-bold text-gray-800 mb-2">{{ $produit['nom'] }}</h4>
-                        <p class="text-gray-600 text-sm mb-4">{{ $produit['ferme'] }}</p>
+                        <h4 class="text-xl font-bold text-gray-800 mb-2">{{ $product->name }}</h4>
+                        <p class="text-gray-600 text-sm mb-4">{{ $product->producer->name ?? 'Producteur' }}</p>
                         <div class="flex justify-between items-center">
-                            <span class="text-3xl font-bold text-green-600">{{ $produit['prix'] }}</span>
-                            <button @click.stop="$dispatch('add-to-cart', { id: {{ $produit['id'] }}, name: '{{ $produit['nom'] }}', price: '{{ $produit['prix'] }}' })"
-                                    class="bg-green-600 hover:bg-green-700 text-white p-4 rounded-full transition shadow-lg">
+                            <span class="text-2xl font-bold text-green-600">{{ number_format($product->price, 2, ',', ' ') }} €</span>
+                            <button @click="$dispatch('add-to-cart', { 
+                                id: {{ $product->id }}, 
+                                name: '{{ addslashes($product->name) }}', 
+                                price: {{ $product->price }} 
+                            })" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full transition shadow-lg">
                                 <i class="ri-add-line text-xl"></i>
                             </button>
                         </div>

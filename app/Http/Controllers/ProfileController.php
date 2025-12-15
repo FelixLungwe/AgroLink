@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\Order;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +36,34 @@ class ProfileController extends Controller
         $request->user()->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
+    }
+
+    /**
+     * Afficher la liste des commandes de l'utilisateur
+     */
+    public function orders()
+    {
+        $orders = auth()->user()->orders()
+            ->withCount('items')
+            ->latest()
+            ->paginate(10);
+
+        return view('profile.orders', compact('orders'));
+    }
+
+    /**
+     * Afficher les détails d'une commande spécifique
+     */
+    public function showOrder(Order $order)
+    {
+        // Vérifier que la commande appartient bien à l'utilisateur connecté
+        if ($order->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $order->load('items.product');
+        
+        return view('profile.order-details', compact('order'));
     }
 
     /**
